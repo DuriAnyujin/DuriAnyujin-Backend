@@ -3,14 +3,11 @@ package com.durianyujin.app.couple.sociallogin.apple.service;
 import com.durianyujin.app.couple.sociallogin.apple.common.AppleProperties;
 import com.durianyujin.app.couple.sociallogin.apple.common.TokenDecoder;
 import com.durianyujin.app.couple.sociallogin.apple.openfeign.AppleAuthClient;
-import com.durianyujin.app.couple.sociallogin.apple.web.dto.AppleIdTokenPayload;
-import com.durianyujin.app.couple.sociallogin.apple.web.dto.TokenRequest;
-import io.jsonwebtoken.JwsHeader;
+import com.durianyujin.app.couple.sociallogin.apple.web.dto.*;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.RequiredArgsConstructor;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.springframework.stereotype.Service;
 
@@ -29,19 +26,38 @@ public class GetMemberInfoService {
 
     private final AppleProperties appleProperties;
 
-    public AppleIdTokenPayload get(String authorizationCode) {
-        TokenRequest tokenRequest = TokenRequest.builder()
+    public CodeResponse validateCode (String authorizationCode) {
+        CodeRequest tokenRequest = CodeRequest.builder()
                 .clientId(appleProperties.getClientId())
                 .clientSecret(generateClientSecret())
                 .grantType(appleProperties.getGrantType())
                 .code(authorizationCode)
                 .build();
 
-        // appleAuthClient의 getIdToken, TokenResponse의 getIdToken
-        String idToken = appleAuthClient.getIdToken(tokenRequest).getIdToken();
+        // member에 refreshToken 저장
+        return appleAuthClient.validateCode(tokenRequest);
+    }
 
+    public AppleIdTokenPayload getRefreshToken () {
+        RefreshTokenRequest refreshTokenRequest = RefreshTokenRequest.builder()
+                .clientId(appleProperties.getClientId())
+                .clientSecret(generateClientSecret())
+                .grantType("refresh_token").build();
+                //.refreshToken().build(); // 멤버에게 저장된 refreshToken
+
+        String idToken = appleAuthClient.validateRefreshToken(refreshTokenRequest).getIdToken();
         return TokenDecoder.decodePayload(idToken, AppleIdTokenPayload.class);
     }
+    /* 애플 소셜 로그인 탈퇴 로직
+    1. 클라이언트는 탈퇴를 진행하기 위해 애플 소셜 로그인 진행
+    -> 한번 더 하는 이유? authorization code 유효기간이 5분
+    -> 처음 로그인할 때 받은 값을 탈퇴할 때 쓰면 유효시간이 지난 값이 됨
+    2. 클라이언트는 서버에게 authorization code를 넘김
+    3. 서버는 애플 측에게 accessToken을 받아오는 Rest API 요청
+    4. 서버는 애플 측에게 accessToken을 받아서 또 애플 측에게 탈퇴 Rest API 요청
+    5. 애플 Rest API에서 200이 내려오면 서버는 자체 회원 탈퇴, DB 업데이트
+     */
+
 
     // https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret
     private String generateClientSecret() {

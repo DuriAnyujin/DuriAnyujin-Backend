@@ -8,17 +8,18 @@ import lombok.NoArgsConstructor;
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TokenRequest {
+public class RefreshTokenRequest {
 
     private String clientId;
     private String clientSecret;
-    private String code;
     private String grantType;
 
-    public TokenRequest(String clientId, String clientSecret, String code, String grantType){
+    private String refreshToken;
+
+    public RefreshTokenRequest(String clientId, String clientSecret, String grantType, String refreshToken){
         this.clientId = clientId;
         this.clientSecret = clientSecret;
-        this.code = code;
         this.grantType = grantType;
+        this.refreshToken = refreshToken;
     }
 }
