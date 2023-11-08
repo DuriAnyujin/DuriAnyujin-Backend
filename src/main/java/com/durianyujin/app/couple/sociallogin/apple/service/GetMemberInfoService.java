@@ -1,22 +1,33 @@
 package com.durianyujin.app.couple.sociallogin.apple.service;
 
+import com.durianyujin.app.couple.member.application.MemberService;
+import com.durianyujin.app.couple.member.infrastructure.MemberRepository;
 import com.durianyujin.app.couple.sociallogin.apple.common.AppleProperties;
 import com.durianyujin.app.couple.sociallogin.apple.common.TokenDecoder;
 import com.durianyujin.app.couple.sociallogin.apple.openfeign.AppleAuthClient;
 import com.durianyujin.app.couple.sociallogin.apple.web.dto.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.RequiredArgsConstructor;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.asn1.pkcs.RSAPublicKey;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.springframework.stereotype.Service;
 
-import java.security.PrivateKey;
-import java.security.Security;
+import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.RSAPublicKeySpec;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +37,46 @@ public class GetMemberInfoService {
 
     private final AppleProperties appleProperties;
 
+    public Claims getClaimsBy(String identityToken) {
+
+        try {
+            ApplePublicKeyResponse response = appleAuthClient.getAppleAuthPublicKey();
+
+            // idToken = jwt token -> 3부분으로 나눠지며, 첫번째 부분은 헤더
+            String headerOfIdToken = identityToken.substring(0, identityToken.indexOf("."));
+
+            // 헤더를 디코딩하고, JSON 형식으로 변환하여 header 맴베 저장
+            Map<String, String> header = new ObjectMapper().readValue(new String(Base64.getDecoder().decode(headerOfIdToken), "UTF-8"), Map.class);
+
+            // 헤더에서 추출한 kid와 alg 값을 사용하여, response에서 해당하는 키를 찾음
+            ApplePublicKeyResponse.Key key = response.getMatchedKeyBy(header.get("kid"), header.get("alg"))
+                    .orElseThrow(() -> new NullPointerException("Failed get public key from apples's Id server."));
+
+            byte[] nBytes = Base64.getUrlDecoder().decode(key.getN());
+            byte[] eBytes = Base64.getUrlDecoder().decode(key.getE());
+
+            // 바이트 배열 -> BigInteger
+            BigInteger n = new BigInteger(1, nBytes);
+            BigInteger e = new BigInteger(1, eBytes);
+
+            // RSA 공개 키 스펙을 생성하고, 공개 키를 생성하기위한 키 팩토리 설정
+            RSAPublicKeySpec publicKeySpec = new RSAPublicKeySpec(n, e);
+
+            // key.getKty(): 공개 키 유형 , RSA 키인경우 "RSA"
+            KeyFactory keyFactory = KeyFactory.getInstance(key.getKty());
+
+            // RSA 공개 키 생성
+            PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
+            // idToken을 서명 검증하고, 해당 토큰 내용을 해석하여 반환, 검증에 사용된 키는 publicKey
+
+            return Jwts.parser().setSigningKey(publicKey).parseClaimsJws(identityToken).getBody();
+        } catch (UnsupportedEncodingException | NoSuchAlgorithmException | InvalidKeySpecException |
+                 JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
     public CodeResponse validateCode (String authorizationCode) {
         CodeRequest tokenRequest = CodeRequest.builder()
                 .clientId(appleProperties.getClientId())
@@ -34,20 +85,21 @@ public class GetMemberInfoService {
                 .code(authorizationCode)
                 .build();
 
-        // member에 refreshToken 저장
+        // 이후 .. member에 refreshToken 저장
         return appleAuthClient.validateCode(tokenRequest);
     }
 
-    public AppleIdTokenPayload getRefreshToken () {
+    public AppleIdTokenPayload validateRefreshToken (String refreshToken) {
         RefreshTokenRequest refreshTokenRequest = RefreshTokenRequest.builder()
                 .clientId(appleProperties.getClientId())
                 .clientSecret(generateClientSecret())
-                .grantType("refresh_token").build();
-                //.refreshToken().build(); // 멤버에게 저장된 refreshToken
+                .grantType("refresh_token")
+                .refreshToken(refreshToken).build(); // 이후.. 멤버에게 저장된 refreshToken
 
         String idToken = appleAuthClient.validateRefreshToken(refreshTokenRequest).getIdToken();
         return TokenDecoder.decodePayload(idToken, AppleIdTokenPayload.class);
     }
+
     /* 애플 소셜 로그인 탈퇴 로직
     1. 클라이언트는 탈퇴를 진행하기 위해 애플 소셜 로그인 진행
     -> 한번 더 하는 이유? authorization code 유효기간이 5분

@@ -1,12 +1,10 @@
 package com.durianyujin.app.couple.sociallogin.apple.openfeign;
 
 import com.durianyujin.app.couple.sociallogin.apple.config.OpenFeignConfig;
-import com.durianyujin.app.couple.sociallogin.apple.web.dto.RefreshTokenRequest;
-import com.durianyujin.app.couple.sociallogin.apple.web.dto.RefreshTokenResponse;
-import com.durianyujin.app.couple.sociallogin.apple.web.dto.CodeRequest;
-import com.durianyujin.app.couple.sociallogin.apple.web.dto.CodeResponse;
+import com.durianyujin.app.couple.sociallogin.apple.web.dto.*;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -19,6 +17,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 
 public interface AppleAuthClient {
+    // public key 조회
+    @GetMapping("/auth/keys")
+    ApplePublicKeyResponse getAppleAuthPublicKey();
+
+
     // authorization code 검증 후, refreshtoken 발급받기
     @PostMapping("/auth/token")
     CodeResponse validateCode (
