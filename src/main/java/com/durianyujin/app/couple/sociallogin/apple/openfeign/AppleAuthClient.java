@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @Component
 @FeignClient(
         name = "apple-auth", // 임의의 client 이름
-        url = "${apple.auth.url}", // 호출할 주소 -> application.properties에
+        url = "${client.apple.auth-url}", // 호출할 주소 -> application.properties에
         configuration = OpenFeignConfig.class
 )
 
