@@ -1,7 +1,6 @@
-package com.durianyujin.app.couple.sociallogin.apple.openfeign;
+package com.durianyujin.app.couple.sociallogin.apple.common;
 
 
-import com.durianyujin.app.couple.sociallogin.apple.common.MyServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Response;
 import feign.codec.ErrorDecoder;
@@ -10,9 +9,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+
+// feign.codec.ErrorDecoder는 Feign에서 발생하는 HTTP 응답 오류를 처리하기 위한 인터페이스
+// 기본적으로 Feign은 ErrorDecoder.Default를 사용하여 HTTP 응답 코드에 따라 예외를 생성합
+// 하지만 사용자 정의 ErrorDecoder(MyServerException)를 구현하여 특정 응답에 대해 사용자 지정 예외를 생성하거나 처리가능
 @Slf4j
 @RequiredArgsConstructor
-public class AppleAuthClientErrorDecoder implements ErrorDecoder {
+public class AppleFeignErrorDecoder implements ErrorDecoder {
 
     private final ObjectMapper objectMapper;
 

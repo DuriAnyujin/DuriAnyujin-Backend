@@ -1,6 +1,6 @@
 package com.durianyujin.app.couple;
 
-import com.durianyujin.app.couple.sociallogin.apple.service.GetMemberInfoService;
+import com.durianyujin.app.couple.sociallogin.apple.service.AppleLoginUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,7 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("default")
 class CoupleApplicationTests {
 	@Autowired
-	GetMemberInfoService getMemberInfoService;
+	AppleLoginUtil getMemberInfoService;
 
 	@Test
 	void getToken() {

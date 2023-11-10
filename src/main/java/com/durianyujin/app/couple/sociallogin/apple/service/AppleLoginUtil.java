@@ -1,20 +1,16 @@
 package com.durianyujin.app.couple.sociallogin.apple.service;
 
-import com.durianyujin.app.couple.member.application.MemberService;
-import com.durianyujin.app.couple.member.infrastructure.MemberRepository;
 import com.durianyujin.app.couple.sociallogin.apple.common.AppleProperties;
 import com.durianyujin.app.couple.sociallogin.apple.common.TokenDecoder;
 import com.durianyujin.app.couple.sociallogin.apple.openfeign.AppleAuthClient;
 import com.durianyujin.app.couple.sociallogin.apple.web.dto.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.RequiredArgsConstructor;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.asn1.pkcs.RSAPublicKey;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +27,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class GetMemberInfoService {
+public class AppleLoginUtil {
 
     private final AppleAuthClient appleAuthClient;
 
@@ -67,8 +63,8 @@ public class GetMemberInfoService {
 
             // RSA 공개 키 생성
             PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
-            // idToken을 서명 검증하고, 해당 토큰 내용을 해석하여 반환, 검증에 사용된 키는 publicKey
 
+            // idToken을 서명 검증하고, 해당 토큰 내용을 해석하여 반환, 검증에 사용된 키는 publicKey
             return Jwts.parser().setSigningKey(publicKey).parseClaimsJws(identityToken).getBody();
         } catch (UnsupportedEncodingException | NoSuchAlgorithmException | InvalidKeySpecException |
                  JsonProcessingException e) {
@@ -89,26 +85,16 @@ public class GetMemberInfoService {
         return appleAuthClient.validateCode(tokenRequest);
     }
 
-    public AppleIdTokenPayload validateRefreshToken (String refreshToken) {
+
+    public RefreshTokenResponse validateRefreshToken (String refreshToken) {
         RefreshTokenRequest refreshTokenRequest = RefreshTokenRequest.builder()
                 .clientId(appleProperties.getClientId())
                 .clientSecret(generateClientSecret())
                 .grantType("refresh_token")
                 .refreshToken(refreshToken).build(); // 이후.. 멤버에게 저장된 refreshToken
 
-        String idToken = appleAuthClient.validateRefreshToken(refreshTokenRequest).getIdToken();
-        return TokenDecoder.decodePayload(idToken, AppleIdTokenPayload.class);
+        return appleAuthClient.validateRefreshToken(refreshTokenRequest);
     }
-
-    /* 애플 소셜 로그인 탈퇴 로직
-    1. 클라이언트는 탈퇴를 진행하기 위해 애플 소셜 로그인 진행
-    -> 한번 더 하는 이유? authorization code 유효기간이 5분
-    -> 처음 로그인할 때 받은 값을 탈퇴할 때 쓰면 유효시간이 지난 값이 됨
-    2. 클라이언트는 서버에게 authorization code를 넘김
-    3. 서버는 애플 측에게 accessToken을 받아오는 Rest API 요청
-    4. 서버는 애플 측에게 accessToken을 받아서 또 애플 측에게 탈퇴 Rest API 요청
-    5. 애플 Rest API에서 200이 내려오면 서버는 자체 회원 탈퇴, DB 업데이트
-     */
 
 
     // https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret
